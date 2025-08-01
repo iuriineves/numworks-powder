@@ -65,22 +65,24 @@ class PixelManager:
     def draw(self):
         for line in self._pixel_grid:
             for pixel in line:
-                if type(pixel) is Pixel: pixel._draw()
+                if type(pixel) is Pixel: 
+                    delta = fabs(time - last_time)
+                    pixel.velocity += Vector2(0, 2 * delta)
+                    pixel._draw()
 
 manager = PixelManager(9.8)
 
-pixel = Pixel(0)
-manager.add_pixel(pixel)
 
-pixel.position = Vector2(50, 0)
+
+for i in range(20):
+    pixel = Pixel(0)
+    pixel.position = Vector2(41 + i, 0)
+    manager.add_pixel(pixel)
 
 time = monotonic()
 last_time = time
 
 while True:
     time = monotonic()
-    print(pixel.velocity.x, pixel.velocity.y)
-    delta = fabs(time - last_time)
-    pixel.velocity += Vector2(0, 2 * delta)
     manager.draw()
     last_time = time
