@@ -72,8 +72,6 @@ class PixelManager:
 
 manager = PixelManager(9.8)
 
-
-
 for i in range(20):
     pixel = Pixel(0)
     pixel.position = Vector2(41 + i, 0)
