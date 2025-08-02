@@ -1,6 +1,6 @@
 from kandinsky import fill_rect, color
 from time import sleep, monotonic
-from math import fabs
+from math import fabs, floor
 
 def get_line(coord1, coord2):
   
@@ -22,7 +22,7 @@ def get_line(coord1, coord2):
     y = coord2.y
 
     points = []
-    for i in range(step):
+    for i in range(int(step)):
         points.append(Vector2(x, y))
         x += dx
         y += dy
@@ -67,8 +67,8 @@ def set_pixel(position: Vector2, color):
     )
 
 SCREEN_SIZE = Vector2(200, 200)
-PIXEL_SIZE = Vector2(2, 2)
-GRID_SIZE = Vector2(100, 100)
+PIXEL_SIZE = Vector2(4, 4)
+GRID_SIZE = Vector2(50, 50)
 
 class Material:
     def __init__(self, color, adhesion: float, viscosity: float, gravity: float) -> None:
@@ -91,7 +91,6 @@ class Pixel:
 
     def _draw(self):
         self._physics_update()
-        set_pixel(self.last_position, color(255, 255, 255))
         set_pixel(self.position, self.material.color)
 
     def _physics_update(self):
@@ -104,45 +103,66 @@ class PixelManager:
         x = pixel.position.x
         y = pixel.position.y
         self._pixel_grid[y][x] = pixel # type: ignore
-    
+
     def remove_pixel(self, pixel):
         x = pixel.position.x
         y = pixel.position.y
+        set_pixel(pixel.position, color(255, 255, 255))
         self._pixel_grid[y][x] = None
 
-    def draw(self):
-        for i, line in enumerate(self._pixel_grid):
+    def draw(self, delta):
+        for i, line in enumerate(self._pixel_grid[::-1]):
             for j, pixel in enumerate(line):
-                if type(pixel) is Pixel: 
-                    delta = fabs(time - last_time)
+                if type(pixel) is Pixel:
                     pixel.velocity += Vector2(0, pixel.material.gravity * delta)
-                    for px_vel in get_line(pixel.position, pixel.position + Vector2(int(pixel.velocity.x), int(pixel.velocity.y))):
-                        if px_vel.y > GRID_SIZE.y - 1:
+                    last_px = pixel.position
+                    collision = False
+                    if self._pixel_grid[pixel.position.y + 1][pixel.position.x] != None:
+                        if self._pixel_grid[pixel.position.y + 1][pixel.position.x + 1] == None:
+                            pixel.velocity = Vector2(1, 1)
                             self.remove_pixel(pixel)
-                            break
-                        if type(self._pixel_grid[int(px_vel.y)][int(px_vel.x)]) is Pixel and not self._pixel_grid[int(px_vel.y)][int(px_vel.x)] is pixel:
-                            pixel.position = px_vel
-                            pixel.velocity = Vector2(0, 0)
-                            break
-                    pixel._draw()
+                            pixel._draw()
+                            self.add_pixel(pixel)
+                        elif self._pixel_grid[pixel.position.y + 1][pixel.position.x - 1] == None:
+                           pixel.velocity = Vector2(-1, 1)
+                           self.remove_pixel(pixel)
+                           pixel._draw()
+                           self.add_pixel(pixel)
+                    else:
+                        for px_vel in get_line(pixel.position - Vector2(pixel.velocity.x, pixel.velocity.y), pixel.position + Vector2(pixel.velocity.x, pixel.velocity.y)):
+                            if px_vel.y >= GRID_SIZE.y:
+                                self.remove_pixel(pixel)
+                                break
+                            if type(self._pixel_grid[int(px_vel.y)][int(px_vel.x)]) is Pixel and not self._pixel_grid[int(px_vel.y)][int(px_vel.x)] is pixel:
+                                collision = True
+                                self.remove_pixel(pixel)
+                                pixel.position = Vector2(int(last_px.x), int(last_px.y))
+                                pixel.velocity = Vector2(0, 0)
+                                break
+                            last_px = px_vel
+                        if self._pixel_grid[int(pixel.position.y)][int(pixel.position.x)] or collision:
+                            self.remove_pixel(pixel)
+                            pixel._draw()
+                            self.add_pixel(pixel)
 
 manager = PixelManager()
 
-for i in range(20):
-    pixel = Pixel(MaterialType.SAND)
-    pixel.position = Vector2(41 + i, 0)
-    manager.add_pixel(pixel)
-
 for i in range(10):
     pixel = Pixel(MaterialType.STONE)
-    pixel.position = Vector2(45 + i, 20)
+    pixel.position = Vector2(5 + i, 20)
     manager.add_pixel(pixel)
 
 time = monotonic()
 last_time = time
 
 while True:
-    sleep(0.01)
+    print(round(time, 1))
+    if round(time, 1) % 2 == 0:
+        pixel = Pixel(MaterialType.SAND)
+        pixel.position = Vector2(10, 0)
+        manager.add_pixel(pixel)
+
     time = monotonic()
-    manager.draw()
+    delta = time - last_time + 1
+    manager.draw(delta)
     last_time = time
