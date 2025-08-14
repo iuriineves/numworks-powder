@@ -1,6 +1,7 @@
 from kandinsky import fill_rect, color
 from time import sleep, monotonic
-from math import fabs
+from math import fabs, floor
+from ion import keydown, KEY_LEFT, KEY_UP, KEY_DOWN, KEY_RIGHT, KEY_OK # type: ignore
 
 def get_line(coord1, coord2):
   
@@ -22,7 +23,7 @@ def get_line(coord1, coord2):
     y = coord2.y
 
     points = []
-    for i in range(step):
+    for i in range(int(step)):
         points.append(Vector2(x, y))
         x += dx
         y += dy
@@ -67,8 +68,14 @@ def set_pixel(position: Vector2, color):
     )
 
 SCREEN_SIZE = Vector2(200, 200)
-PIXEL_SIZE = Vector2(2, 2)
-GRID_SIZE = Vector2(100, 100)
+PIXEL_SIZE = Vector2(4, 4)
+GRID_SIZE = Vector2(50, 50)
+
+MOUSE_SPRITE = [
+                ["", color(0, 0, 0), ""],
+                [color(0, 0, 0), "", color(0, 0, 0)],
+                ["", color(0, 0, 0), ""],
+                ]
 
 pixel_grid = [[None for _ in range(int(GRID_SIZE.y))] for _ in range(int(GRID_SIZE.x))]
 class Material:
@@ -103,7 +110,7 @@ class Pixel:
             print("a")
 
         self.last_position = self.position
-        self.velocity.y += self.material.gravity
+        self.velocity.y += self.material.gravity * delta
         points = get_line(self.position, self.position + self.velocity)
         for i, point in enumerate(points):
             if int(point.y) >= len(pixel_grid) or int(point.x) >= len(pixel_grid[0]):
@@ -129,22 +136,48 @@ class PixelManager:
 
     def draw(self):
         for line in pixel_grid:
-            sleep(0.1)
+            #sleep(0.1)
             for pixel in line:
                 if type(pixel) is Pixel: 
                     delta = fabs(time - last_time)
                     pixel._draw(delta)
 
-manager = PixelManager()
+class Mouse():
+    def __init__(self, pixel_manager: PixelManager) -> None:
+        self.pixel_manager = pixel_manager
+        self.position = Vector2(0, 0)
+        self.last_position = Vector2(0, 0)
 
-for i in range(20):
-    pixel = Pixel(MaterialType.SAND)
-    pixel.position = Vector2(41 + i, 0)
-    manager.add_pixel(pixel)
+    def handle_input(self):
+        if keydown(KEY_RIGHT):
+            self.position = Vector2(self.position.x + 1, self.position.y)
+        if keydown(KEY_LEFT):
+            self.position = Vector2(self.position.x - 1, self.position.y)
+        if keydown(KEY_UP):
+            self.position = Vector2(self.position.x, self.position.y - 1)
+        if keydown(KEY_DOWN):
+            self.position = Vector2(self.position.x, self.position.y + 1)
+        if keydown(KEY_OK):
+            new_px = Pixel(MaterialType.SAND)
+            new_px.position = self.position + Vector2(1, 1)
+            self.pixel_manager.add_pixel(new_px)
+
+
+    def draw(self):
+        self.handle_input()
+        for i, line in enumerate(MOUSE_SPRITE):
+            for j, pixel in enumerate(line):
+                if pixel == "": continue
+                set_pixel((Vector2(j, i) + self.last_position), color(255, 255, 255))
+                set_pixel(Vector2(j, i) + self.position, color(255, 0, 0))
+        self.last_position = self.position
+
+manager = PixelManager()
+mouse = Mouse(manager)
 
 for i in range(10):
     pixel = Pixel(MaterialType.STONE)
-    pixel.position = Vector2(45 + i, 20)
+    pixel.position = Vector2(5 + i, 20)
     manager.add_pixel(pixel)
 
 time = monotonic()
@@ -152,5 +185,7 @@ last_time = time
 
 while True:
     time = monotonic()
+    mouse.draw()
     manager.draw()
+    mouse.draw()
     last_time = time
